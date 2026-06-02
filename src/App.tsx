@@ -10,7 +10,9 @@ import InputRequestForm from './components/InputRequestForm';
 import MonitoringDashboard from './components/MonitoringDashboard';
 import PlanningBoardWorksite from './components/PlanningBoardWorksite';
 import PerformanceReport from './components/PerformanceReport';
-import { Bell, Truck, Heart, ArrowUpRight, LogOut, Info, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Bell, Truck, Heart, ArrowUpRight, LogOut, Info, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
+import { initAuth, googleSignIn, logout, getAccessToken } from './firebase';
+import { User } from 'firebase/auth';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'input_request' | 'monitoring' | 'planning_board' | 'report'>(() => {
@@ -24,12 +26,51 @@ export default function App() {
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
+  // Authentication State
+  const [needsAuth, setNeedsAuth] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   // Mock list of notifications matching real-time activity
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'Order #LT-88210 berhasil terkirim ke Bandung.', time: '5 mnt lalu', read: false },
     { id: 2, text: 'Permintaan pengiriman baru masuk untuk Surabaya.', time: '1 jam lalu', read: false },
     { id: 3, text: 'Sopir Hendra Wijaya ditugaskan rute Jakarta Barat.', time: '3 jam lalu', read: true }
   ]);
+
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setUser(user);
+        setNeedsAuth(false);
+      },
+      () => {
+        setUser(null);
+        setNeedsAuth(true);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    setIsLoggingIn(true);
+    try {
+      const result = await googleSignIn();
+      if (result) {
+        setUser(result.user);
+        setNeedsAuth(false);
+      }
+    } catch (err) {
+      console.error('Login failed:', err);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.reload();
+  };
 
   useEffect(() => {
     saveData('logisales_delivery_requests', requests);
@@ -247,54 +288,73 @@ export default function App() {
 
           {/* User Profile Avatar block */}
           <div className="relative">
-            <button
-              id="user-profile-trigger"
-              onClick={() => {
-                setShowUserDropdown(!showUserDropdown);
-                setShowNotificationDropdown(false);
-              }}
-              className="flex items-center gap-2 hover:bg-rose-50 p-1 rounded-lg transition cursor-pointer"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop"
-                alt="LogiSales Executive"
-                referrerPolicy="no-referrer"
-                className="w-8 h-8 rounded-full object-cover border border-[#ddbfc1]"
-              />
-              <span className="hidden sm:inline text-xs font-bold text-gray-800 font-mono">
-                Gunawan W.
-              </span>
-            </button>
+            {needsAuth ? (
+              <button
+                onClick={handleLogin}
+                disabled={isLoggingIn}
+                className="flex items-center gap-2 bg-[#a33348] hover:bg-[#8e2b3e] text-white px-3 py-1.5 rounded text-xs font-semibold cursor-pointer transition shadow-sm disabled:opacity-50"
+              >
+                {isLoggingIn ? 'Memuat...' : 'Connect Google'}
+              </button>
+            ) : (
+              <>
+                <button
+                  id="user-profile-trigger"
+                  onClick={() => {
+                    setShowUserDropdown(!showUserDropdown);
+                    setShowNotificationDropdown(false);
+                  }}
+                  className="flex items-center gap-2 hover:bg-rose-50 p-1 rounded-lg transition cursor-pointer"
+                >
+                  <img
+                    src={user?.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop"}
+                    alt="LogiSales Executive"
+                    referrerPolicy="no-referrer"
+                    className="w-8 h-8 rounded-full object-cover border border-[#ddbfc1]"
+                  />
+                  <span className="hidden sm:inline text-xs font-bold text-gray-800 font-mono">
+                    {user?.displayName || "Admin"}
+                  </span>
+                </button>
 
-            {/* Profile Dropdown modal */}
-            {showUserDropdown && (
-              <div className="absolute right-0 mt-2.5 w-56 bg-white border border-[#ddbfc1] rounded-lg shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
-                <div className="px-4 py-2.5 border-b border-gray-100 bg-[#fff5f6]">
-                  <p className="text-xs font-bold text-gray-900">Gunawan Wibisono</p>
-                  <p className="text-[10px] text-gray-500 font-mono mt-0.5">Admin Koordinator Utama</p>
-                </div>
-                <div className="p-1 space-y-0.5">
-                  <div className="px-3 py-1.5 text-[11px] text-[#574143] flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-[#a33348]" />
-                    <span>Level: Executive Admin</span>
+                {/* Profile Dropdown modal */}
+                {showUserDropdown && (
+                  <div className="absolute right-0 mt-2.5 w-56 bg-white border border-[#ddbfc1] rounded-lg shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+                    <div className="px-4 py-2.5 border-b border-gray-100 bg-[#fff5f6]">
+                      <p className="text-xs font-bold text-gray-900 truncate">{user?.displayName || "Admin"}</p>
+                      <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{user?.email || "Admin Koordinator Utama"}</p>
+                    </div>
+                    <div className="p-1 space-y-0.5">
+                      <div className="px-3 py-1.5 text-[11px] text-[#574143] flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-[#a33348]" />
+                        <span>Level: Executive Admin</span>
+                      </div>
+                      <div className="px-3 py-1.5 text-[11px] text-gray-500 flex items-center gap-2">
+                        <Info className="w-3.5 h-3.5" />
+                        <span>ID: EMP-KL-9122</span>
+                      </div>
+                      <hr className="border-gray-100" />
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-rose-50 font-bold rounded transition flex items-center gap-2"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        Logout Akun
+                      </button>
+                      <button 
+                        onClick={() => {
+                          localStorage.clear();
+                          window.location.reload();
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-rose-50 font-bold rounded transition flex items-center gap-2"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Reset Data Simulasi
+                      </button>
+                    </div>
                   </div>
-                  <div className="px-3 py-1.5 text-[11px] text-gray-500 flex items-center gap-2">
-                    <Info className="w-3.5 h-3.5" />
-                    <span>ID: EMP-KL-9122</span>
-                  </div>
-                  <hr className="border-gray-100" />
-                  <button 
-                    onClick={() => {
-                      localStorage.clear();
-                      window.location.reload();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-rose-50 font-bold rounded transition flex items-center gap-2"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    Reset Data Simulasi
-                  </button>
-                </div>
-              </div>
+                )}
+              </>
             )}
           </div>
 

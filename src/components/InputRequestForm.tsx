@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { DeliveryRequest } from '../types';
 import { Send, Upload, CheckCircle2 } from 'lucide-react';
+import { getAccessToken } from '../firebase';
 
 interface InputRequestFormProps {
   onAddRequest: (req: DeliveryRequest) => void;
@@ -31,6 +32,7 @@ export default function InputRequestForm({ onAddRequest, onNavigateToMonitoring 
   const [fileName, setFileName] = useState<string>('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [createdId, setCreatedId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -38,7 +40,7 @@ export default function InputRequestForm({ onAddRequest, onNavigateToMonitoring 
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.namaCustomer || !formData.noOrder || !formData.namaBarang || !formData.alamatLengkap) {
@@ -71,6 +73,14 @@ export default function InputRequestForm({ onAddRequest, onNavigateToMonitoring 
       return;
     }
 
+    const token = await getAccessToken();
+    if (!token) {
+      alert('Silakan Connect Google (di bagian pojok kanan atas) terlebih dahulu untuk menyimpan ke Spreadsheet.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
     // Generate custom code in OMO-DDMMYY format
     const omoVal = formData.omo;
     const today = new Date();
@@ -99,30 +109,76 @@ export default function InputRequestForm({ onAddRequest, onNavigateToMonitoring 
       destination: `${formData.kota}, ${formData.kecamatan || 'Umum'}`
     };
 
-    onAddRequest(newRequest);
-    setCreatedId(newId);
-    setShowSuccessToast(true);
+    try {
+      const sheetId = '1lG35nFJ3FRrjIKQ8vtir2CzLHQtY5jHPE1AQofn05P4';
+      const range = 'A1';
+      const rowData = [
+        newRequest.omo,
+        newRequest.noOrder,
+        newRequest.noRt,
+        newRequest.rtAction,
+        newRequest.namaCustomer,
+        newRequest.kota,
+        newRequest.kecamatan,
+        newRequest.alamatLengkap,
+        newRequest.namaBarang,
+        newRequest.remark,
+        newRequest.kesiapanBarang,
+        newRequest.status,
+        newRequest.tanggal,
+        newRequest.id
+      ]; // Columns to append
 
-    // Reset Form
-    setFormData({
-      omo: '',
-      noOrder: '',
-      namaCustomer: '',
-      noRt: '',
-      rtAction: '',
-      namaBarang: '',
-      alamatLengkap: '',
-      kecamatan: '',
-      kota: '',
-      remark: '',
-      kesiapanBarang: '',
-      konfirmasiKirim: false
-    });
-    setFileName('');
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          values: [rowData]
+        }),
+      });
 
-    setTimeout(() => {
-      setShowSuccessToast(false);
-    }, 5000);
+      if (!response.ok) {
+        let errorMsg = 'Failed to append to spreadsheet';
+        try {
+          const errData = await response.json();
+          errorMsg = errData.error?.message || errorMsg;
+        } catch(e) {}
+        throw new Error(errorMsg);
+      }
+
+      onAddRequest(newRequest);
+      setCreatedId(newId);
+      setShowSuccessToast(true);
+
+      // Reset Form
+      setFormData({
+        omo: '',
+        noOrder: '',
+        namaCustomer: '',
+        noRt: '',
+        rtAction: '',
+        namaBarang: '',
+        alamatLengkap: '',
+        kecamatan: '',
+        kota: '',
+        remark: '',
+        kesiapanBarang: '',
+        konfirmasiKirim: false
+      });
+      setFileName('');
+
+      setTimeout(() => {
+        setShowSuccessToast(false);
+      }, 5000);
+    } catch (error: any) {
+      console.error(error);
+      alert('Gagal menyimpan ke Spreadsheet: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePreFill = () => {
@@ -422,10 +478,11 @@ export default function InputRequestForm({ onAddRequest, onNavigateToMonitoring 
             <button
               id="submit-request-button"
               type="submit"
-              className="w-full sm:w-auto bg-[#a33348] hover:bg-[#8e2b3e] text-white px-6 py-2.5 rounded font-semibold text-sm shadow-sm transition active:scale-[0.98] flex items-center justify-center gap-2"
+              disabled={isSubmitting}
+              className="w-full sm:w-auto bg-[#a33348] hover:bg-[#8e2b3e] text-white px-6 py-2.5 rounded font-semibold text-sm shadow-sm transition active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4 transform rotate-0" />
-              Submit Request
+              {isSubmitting ? 'Menyimpan...' : 'Submit Request'}
             </button>
           </div>
         </form>
