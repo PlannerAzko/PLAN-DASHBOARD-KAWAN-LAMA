@@ -1,0 +1,6 @@
+{
+  "name": "LogiSales Delivery",
+  "description": "Aplikasi manajemen pengiriman barang dan pemantauan armada real-time untuk PT. Kawan Lama Solusi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

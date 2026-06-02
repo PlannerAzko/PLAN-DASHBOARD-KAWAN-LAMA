@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand-primary-bg: #fff8f7;
+  --color-brand-primary: #a33348;
+  --color-brand-primary-hover: #8e2b3e;
+  --color-brand-rose-light: #fff0f0;
+  --color-brand-rose-medium: #c74e62;
+  --color-brand-rose-dark: #874e55;
+  --color-brand-surface: #ffeced;
+  --color-brand-outline: #8a7173;
+  --color-brand-outline-light: #ddbfc1;
+  
+  --color-status-success-bg: #e6f6ec;
+  --color-status-success-text: #15803d;
+  --color-status-pending-bg: #eff6ff;
+  --color-status-pending-text: #1d4ed8;
+  --color-status-warning-bg: #fffbeb;
+  --color-status-warning-text: #b45309;
+  --color-status-error-bg: #fef2f2;
+  --color-status-error-text: #b91c1c;
+  --color-status-neutral-bg: #f3f4f6;
+  --color-status-neutral-text: #4b5563;
+}
+
+body {
+  background-color: #fff8f7;
+  color: #24191a;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Custom scrollbar for beautiful columns */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ddbfc1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a33348;
+}
